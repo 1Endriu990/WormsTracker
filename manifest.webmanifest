@@ -1,0 +1,18 @@
+{
+  "name": "Worms Battle Tracker",
+  "short_name": "Worms Tracker",
+  "description": "Ranking i historia bitew Worms.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1d2a20",
+  "theme_color": "#202d22",
+  "lang": "pl",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -43,3 +43,6 @@ $('resetStats').addEventListener('click', () => { if (!state.matches.length) ret
 $('battleForm').addEventListener('submit', (event) => { event.preventDefault(); const players=selectedPlayers(), winner=$('winner').value; if(players.length<2 || !players.includes(winner)) return; state.matches.push({players,winner,at:Date.now()}); localStorage.setItem(storageKey,JSON.stringify(state)); render(); dialog.close(); toast(`Bitwa zapisana — ${winner} otrzymuje +3 pkt!`); });
 document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t===button)); document.querySelectorAll('.tab-view').forEach(view=>view.hidden=view.dataset.view!==button.dataset.tab); }));
 render();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
