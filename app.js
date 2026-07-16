@@ -1,48 +1,137 @@
 const storageKey = 'worms-battle-tracker-v1';
-const initial = { matches: [
-  { players: ['Kret', 'Borsuk'], winner: 'Kret', at: Date.now() - 86400000 * 2 },
-  { players: ['Nitro', 'Kret', 'Borsuk'], winner: 'Nitro', at: Date.now() - 86400000 },
-  { players: ['Borsuk', 'Nitro'], winner: 'Borsuk', at: Date.now() - 7200000 }
-]};
-let state = JSON.parse(localStorage.getItem(storageKey)) || initial;
-state.roster ||= [...new Set(state.matches.flatMap(m => m.players))].sort((a,b) => a.localeCompare(b, 'pl'));
 const $ = (id) => document.getElementById(id);
 const dialog = $('battleDialog');
+const backendConfig = window.SUPABASE_CONFIG || {};
+const online = Boolean(backendConfig.url && backendConfig.publishableKey && window.supabase);
+const db = online ? window.supabase.createClient(backendConfig.url, backendConfig.publishableKey) : null;
+
+const initial = {
+  players: [
+    { id: 'kret', name: 'Kret', is_active: true },
+    { id: 'borsuk', name: 'Borsuk', is_active: true },
+    { id: 'nitro', name: 'Nitro', is_active: true }
+  ],
+  matches: [
+    { id: 'local-1', participant_ids: ['kret', 'borsuk'], winner_id: 'kret', played_at: new Date(Date.now() - 172800000).toISOString() },
+    { id: 'local-2', participant_ids: ['nitro', 'kret', 'borsuk'], winner_id: 'nitro', played_at: new Date(Date.now() - 86400000).toISOString() },
+    { id: 'local-3', participant_ids: ['borsuk', 'nitro'], winner_id: 'borsuk', played_at: new Date(Date.now() - 7200000).toISOString() }
+  ]
+};
+
+let state = JSON.parse(localStorage.getItem(storageKey)) || initial;
+if (!state.players) {
+  const names = state.roster || [];
+  const playerMap = new Map(names.map((name, index) => [name, `legacy-${index}`]));
+  state = {
+    players: names.map((name, index) => ({ id: `legacy-${index}`, name, is_active: true })),
+    matches: (state.matches || []).map((match, index) => ({ id: `legacy-match-${index}`, participant_ids: match.players.map(name => playerMap.get(name)), winner_id: playerMap.get(match.winner), played_at: new Date(match.at).toISOString() }))
+  };
+}
+
+function saveLocal() { localStorage.setItem(storageKey, JSON.stringify(state)); }
+function playerById(id) { return state.players.find(player => player.id === id); }
+function playerName(id) { return playerById(id)?.name || 'Usunięty gracz'; }
+function activePlayers() { return state.players.filter(player => player.is_active).sort((a, b) => a.name.localeCompare(b.name, 'pl')); }
+
 function standings() {
-  const map = new Map();
-  state.matches.forEach(m => m.players.forEach(name => {
-    if (!map.has(name)) map.set(name, { name, points: 0, wins: 0, games: 0 });
-    const p = map.get(name); p.games++; if (name === m.winner) { p.points += 3; p.wins++; } else { p.points--; p.losses = (p.losses || 0) + 1; }
+  const table = new Map(state.players.map(player => [player.id, { ...player, points: 0, wins: 0, losses: 0, games: 0 }]));
+  state.matches.forEach(match => match.participant_ids.forEach(id => {
+    const player = table.get(id);
+    if (!player) return;
+    player.games++;
+    if (id === match.winner_id) { player.points += 3; player.wins++; } else { player.points--; player.losses++; }
   }));
-  return [...map.values()].sort((a,b) => b.points-a.points || b.wins-a.wins || a.games-b.games || a.name.localeCompare(b.name, 'pl'));
+  return [...table.values()].sort((a, b) => b.points - a.points || b.wins - a.wins || a.games - b.games || a.name.localeCompare(b.name, 'pl'));
+}
+
+function renderParticipantList() {
+  const players = activePlayers();
+  $('participantList').innerHTML = players.length ? players.map(player => `<label class="participant"><input type="checkbox" value="${player.id}"><span>${player.name}</span></label>`).join('') : '<span class="history empty">Najpierw dodaj graczy w zakładce „Gracze”.</span>';
+  updateWinnerOptions();
+}
+function selectedPlayers() { return [...document.querySelectorAll('.participant input:checked')].map(input => input.value); }
+function updateWinnerOptions() {
+  const players = selectedPlayers(), select = $('winner');
+  select.innerHTML = players.length >= 2 ? players.map(id => `<option value="${id}">${playerName(id)}</option>`).join('') : '<option>Najpierw zaznacz graczy</option>';
+  select.disabled = players.length < 2;
+}
+function matchCard(match, index, full) {
+  const winner = playerName(match.winner_id), participants = match.participant_ids.map(playerName).join(', '), date = new Date(match.played_at).toLocaleString('pl-PL', { dateStyle: full ? 'full' : 'medium', timeStyle: 'short' });
+  const remove = full ? `<button class="delete-match" type="button" data-match-id="${match.id}">USUŃ</button>` : '';
+  return `<article class="match"><div class="match-top"><b>${full ? `#${state.matches.length - index} • ` : ''}🏅 ${winner}</b>${remove}</div><p>${full ? 'Uczestnicy: ' : 'pokonał: '}${full ? participants : match.participant_ids.filter(id => id !== match.winner_id).map(playerName).join(', ')}</p><time>${date}${full ? ' • zwycięzca +3 pkt, pozostali −1 pkt' : ''}</time></article>`;
 }
 function render() {
   const rows = standings();
-  $('ranking').innerHTML = rows.length ? rows.map((p,i) => { const losses = p.losses || 0, winRate = Math.round((p.wins / p.games) * 100); return `<div class="rank-row"><span class="place">${i+1}</span><span class="player">${p.name}<small>${p.games} ${p.games === 1 ? 'bitwa' : 'bitew'}</small></span><span class="points">${p.points}</span><span class="wins">${p.wins} W</span><span class="losses">${losses} P</span><span class="rate">${winRate}%</span></div>`; }).join('') : '<div class="history empty">Brak graczy.</div>';
-  $('history').classList.remove('empty');
-  $('history').innerHTML = state.matches.slice().reverse().slice(0,6).map(m => `<article class="match"><b>🏅 ${m.winner}</b><p>pokonał: ${m.players.filter(p=>p!==m.winner).join(', ')}</p><time>${new Date(m.at).toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'})}</time></article>`).join('');
+  $('ranking').innerHTML = rows.length ? rows.map((player, index) => { const rate = player.games ? Math.round(player.wins / player.games * 100) : 0; return `<div class="rank-row"><span class="place">${index + 1}</span><span class="player">${player.name}<small>${player.games} ${player.games === 1 ? 'bitwa' : 'bitew'}</small></span><span class="points">${player.points}</span><span class="wins">${player.wins} W</span><span class="losses">${player.losses} P</span><span class="rate">${rate}%</span></div>`; }).join('') : '<div class="history empty">Brak graczy.</div>';
+  const newest = state.matches.slice().reverse();
+  $('history').classList.toggle('empty', !newest.length);
+  $('history').innerHTML = newest.length ? newest.slice(0, 6).map((match, index) => matchCard(match, index, false)).join('') : 'Jeszcze żadna bomba nie spadła. Dodaj pierwszą bitwę!';
+  $('fullHistory').innerHTML = newest.length ? newest.map((match, index) => matchCard(match, index, true)).join('') : '<div class="history empty">Historia jest jeszcze pusta.</div>';
   $('matchCount').textContent = state.matches.length;
-  $('playerCount').textContent = rows.length;
+  $('playerCount').textContent = state.players.length;
   $('leaderName').textContent = rows[0]?.name || '—';
   $('recentLabel').textContent = `${state.matches.length} ${state.matches.length === 1 ? 'raport' : 'raportów'}`;
-  $('fullHistory').innerHTML = state.matches.length ? state.matches.slice().reverse().map((m, index) => { const matchIndex = state.matches.length - 1 - index; return `<article class="match"><div class="match-top"><b>#${state.matches.length-index} • 🏅 ${m.winner}</b><button class="delete-match" type="button" data-match-index="${matchIndex}">USUŃ</button></div><p>Uczestnicy: ${m.players.join(', ')}</p><time>${new Date(m.at).toLocaleString('pl-PL',{dateStyle:'full',timeStyle:'short'})} • zwycięzca +3 pkt, pozostali −1 pkt</time></article>`; }).join('') : '<div class="history empty">Historia jest jeszcze pusta.</div>';
-  $('roster').innerHTML = state.roster.length ? state.roster.map((name, index) => `<span class="roster-chip"><span>${name}</span><button class="remove-player" type="button" data-remove-player="${index}" aria-label="Usuń gracza ${name}">×</button></span>`).join('') : '<span class="history empty">Dodaj pierwszego gracza.</span>';
+  $('roster').innerHTML = activePlayers().length ? activePlayers().map(player => `<span class="roster-chip"><span>${player.name}</span><button class="remove-player" type="button" data-remove-player="${player.id}" aria-label="Usuń gracza ${player.name}">×</button></span>`).join('') : '<span class="history empty">Dodaj pierwszego gracza.</span>';
   renderParticipantList();
 }
-function selectedPlayers() { return [...document.querySelectorAll('.participant input:checked')].map(input => input.value); }
-function renderParticipantList() { $('participantList').innerHTML = state.roster.length ? state.roster.map(name => `<label class="participant"><input type="checkbox" value="${name.replaceAll('&','&amp;').replaceAll('"','&quot;')}"><span>${name}</span></label>`).join('') : '<span class="history empty">Najpierw dodaj graczy w zakładce „Gracze”.</span>'; updateWinnerOptions(); }
-function updateWinnerOptions() { const players=selectedPlayers(), select=$('winner'); select.innerHTML = players.length >= 2 ? players.map(p=>`<option value="${p.replaceAll('&','&amp;').replaceAll('<','&lt;')}">${p}</option>`).join('') : '<option>Najpierw zaznacz graczy</option>'; select.disabled = players.length < 2; }
-function toast(text) { const el=$('toast');el.textContent=text;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600); }
+function toast(text) { const el = $('toast'); el.textContent = text; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); }
+function fail(error) { console.error(error); toast('Nie udało się zapisać zmian. Spróbuj ponownie.'); }
+
+async function loadOnline() {
+  const [players, matches] = await Promise.all([db.from('players').select('*').order('name'), db.from('matches').select('*').order('played_at')]);
+  if (players.error) throw players.error;
+  if (matches.error) throw matches.error;
+  state = { players: players.data, matches: matches.data };
+  render();
+}
+async function addPlayer(name) {
+  if (online) { const { error } = await db.from('players').insert({ name }); if (error) throw error; } else { state.players.push({ id: `local-${crypto.randomUUID()}`, name, is_active: true }); saveLocal(); }
+}
+async function disablePlayer(id) {
+  if (online) { const { error } = await db.from('players').update({ is_active: false }).eq('id', id); if (error) throw error; } else { playerById(id).is_active = false; saveLocal(); }
+}
+async function addMatch(participant_ids, winner_id) {
+  if (online) { const { error } = await db.from('matches').insert({ participant_ids, winner_id }); if (error) throw error; } else { state.matches.push({ id: `local-${crypto.randomUUID()}`, participant_ids, winner_id, played_at: new Date().toISOString() }); saveLocal(); }
+}
+async function deleteMatch(id) {
+  if (online) { const { error } = await db.from('matches').delete().eq('id', id); if (error) throw error; } else { state.matches = state.matches.filter(match => match.id !== id); saveLocal(); }
+}
+async function resetMatches() {
+  if (online) { const { error } = await db.from('matches').delete().not('id', 'is', null); if (error) throw error; } else { state.matches = []; saveLocal(); }
+}
+
 $('openBattle').onclick = () => { renderParticipantList(); dialog.showModal(); };
 $('closeBattle').onclick = () => dialog.close();
 $('participantList').addEventListener('change', updateWinnerOptions);
-$('playerForm').addEventListener('submit', (event) => { event.preventDefault(); const field=$('playerName'), name=field.value.trim().replace(/\s+/g,' '); if(!name) return; if(state.roster.some(p => p.toLocaleLowerCase('pl') === name.toLocaleLowerCase('pl'))) return toast('Taki gracz jest już na liście.'); state.roster.push(name); state.roster.sort((a,b)=>a.localeCompare(b,'pl')); localStorage.setItem(storageKey,JSON.stringify(state)); field.value=''; render(); toast(`Gracz ${name} został dodany!`); });
-$('roster').addEventListener('click', (event) => { const button = event.target.closest('[data-remove-player]'); if (!button) return; const index = Number(button.dataset.removePlayer), [name] = state.roster.splice(index, 1); localStorage.setItem(storageKey, JSON.stringify(state)); render(); toast(`Gracz ${name} został usunięty z listy.`); });
-$('fullHistory').addEventListener('click', (event) => { const button = event.target.closest('[data-match-index]'); if (!button) return; const index = Number(button.dataset.matchIndex); if (!window.confirm('Usunąć ten mecz z historii i przeliczyć ranking?')) return; state.matches.splice(index, 1); localStorage.setItem(storageKey, JSON.stringify(state)); render(); toast('Mecz został usunięty, a ranking przeliczony.'); });
-$('resetStats').addEventListener('click', () => { if (!state.matches.length) return toast('Nie ma jeszcze statystyk do wyzerowania.'); if (!window.confirm('Na pewno wyzerować statystyki? Wszystkie mecze i historia zostaną usunięte. Lista graczy zostanie zachowana.')) return; state.matches = []; localStorage.setItem(storageKey, JSON.stringify(state)); render(); toast('Statystyki i historia zostały wyzerowane.'); });
-$('battleForm').addEventListener('submit', (event) => { event.preventDefault(); const players=selectedPlayers(), winner=$('winner').value; if(players.length<2 || !players.includes(winner)) return; state.matches.push({players,winner,at:Date.now()}); localStorage.setItem(storageKey,JSON.stringify(state)); render(); dialog.close(); toast(`Bitwa zapisana — ${winner} otrzymuje +3 pkt!`); });
-document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t===button)); document.querySelectorAll('.tab-view').forEach(view=>view.hidden=view.dataset.view!==button.dataset.tab); }));
-render();
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-}
+$('playerForm').addEventListener('submit', async (event) => {
+  event.preventDefault(); const field = $('playerName'), name = field.value.trim().replace(/\s+/g, ' ');
+  if (!name) return;
+  if (state.players.some(player => player.name.toLocaleLowerCase('pl') === name.toLocaleLowerCase('pl'))) return toast('Taki gracz jest już na liście.');
+  try { await addPlayer(name); field.value = ''; if (online) await loadOnline(); else render(); toast(`Gracz ${name} został dodany!`); } catch (error) { fail(error); }
+});
+$('roster').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-remove-player]'); if (!button) return;
+  const player = playerById(button.dataset.removePlayer); if (!player || !window.confirm(`Usunąć ${player.name} z listy dostępnych graczy? Historia zostanie zachowana.`)) return;
+  try { await disablePlayer(player.id); if (online) await loadOnline(); else render(); toast(`Gracz ${player.name} został usunięty z listy.`); } catch (error) { fail(error); }
+});
+$('battleForm').addEventListener('submit', async (event) => {
+  event.preventDefault(); const participant_ids = selectedPlayers(), winner_id = $('winner').value;
+  if (participant_ids.length < 2 || !participant_ids.includes(winner_id)) return;
+  try { await addMatch(participant_ids, winner_id); if (online) await loadOnline(); else render(); dialog.close(); toast(`Bitwa zapisana — ${playerName(winner_id)} otrzymuje +3 pkt!`); } catch (error) { fail(error); }
+});
+$('fullHistory').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-match-id]'); if (!button || !window.confirm('Usunąć ten mecz z historii i przeliczyć ranking?')) return;
+  try { await deleteMatch(button.dataset.matchId); if (online) await loadOnline(); else render(); toast('Mecz został usunięty, a ranking przeliczony.'); } catch (error) { fail(error); }
+});
+$('resetStats').addEventListener('click', async () => {
+  if (!state.matches.length) return toast('Nie ma jeszcze statystyk do wyzerowania.');
+  if (!window.confirm('Na pewno wyzerować statystyki? Wszystkie mecze i historia zostaną usunięte. Lista graczy zostanie zachowana.')) return;
+  try { await resetMatches(); if (online) await loadOnline(); else render(); toast('Statystyki i historia zostały wyzerowane.'); } catch (error) { fail(error); }
+});
+document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab === button)); document.querySelectorAll('.tab-view').forEach(view => view.hidden = view.dataset.view !== button.dataset.tab); }));
+
+if (online) {
+  loadOnline().catch(fail);
+  db.channel('worms-tracker-live').on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadOnline().catch(fail)).on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => loadOnline().catch(fail)).subscribe();
+} else render();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));

@@ -1,10 +1,11 @@
-const CACHE_NAME = 'worms-tracker-v1';
+const CACHE_NAME = 'worms-tracker-v2';
 const APP_FILES = [
   './',
   './index.html',
   './styles.css',
   './readability.css',
   './app.js',
+  './supabase-config.js',
   './manifest.webmanifest',
   './icon.svg'
 ];
