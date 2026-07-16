@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#202d22" />
+    <title>Worms: Battle Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Permanent+Marker&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="readability.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar panel">
+        <div class="brand"><span class="crosshair">✦</span><div><strong>WORMS</strong><small>BATTLE TRACKER</small></div></div>
+        <span class="live"><i></i> NA ŻYWO</span>
+      </header>
+
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">SEZON 01 • POLIGON</p>
+          <h1>Ranking bojowy</h1>
+          <p class="hero-copy">Każda bitwa się liczy. Wygraj i zgarnij +3 pkt.</p>
+        </div>
+        <button class="primary" id="openBattle">+ DODAJ BITWĘ</button>
+      </section>
+
+      <nav class="tabs" aria-label="Widoki aplikacji">
+        <button class="tab active" data-tab="battle">🏆 RANKING I BITWY</button>
+        <button class="tab" data-tab="players">👥 GRACZE</button>
+        <button class="tab" data-tab="history">📜 HISTORIA</button>
+      </nav>
+
+      <section class="stats tab-view" data-view="battle" aria-label="Podsumowanie">
+        <article class="stat panel"><span>ROZEGRANE BITWY</span><b id="matchCount">0</b></article>
+        <article class="stat panel"><span>GRACZE</span><b id="playerCount">0</b></article>
+        <article class="stat panel"><span>LIDER</span><b id="leaderName">—</b></article>
+      </section>
+
+      <section class="content-grid tab-view" data-view="battle">
+        <section class="panel leaderboard">
+          <div class="section-head"><h2>🏆 Ranking</h2><span>pkt • W • P • % zwycięstw</span></div>
+          <div id="ranking" class="ranking"></div>
+        </section>
+        <section class="panel recent">
+          <div class="section-head"><h2>📡 Ostatnie bitwy</h2><span id="recentLabel">brak danych</span></div>
+          <div id="history" class="history empty">Jeszcze żadna bomba nie spadła. Dodaj pierwszą bitwę!</div>
+        </section>
+      </section>
+
+      <section class="tab-view players-view" data-view="players" hidden>
+        <section class="panel roster-panel">
+          <div class="section-head"><h2>👥 Lista graczy</h2><span>wybierz ich później w raporcie bitwy</span></div>
+          <form id="playerForm" class="add-player">
+            <label for="playerName">Nowy gracz</label>
+            <div><input id="playerName" placeholder="np. Kret" autocomplete="off" required /><button class="primary" type="submit">DODAJ GRACZA</button></div>
+            <small>Gracz dodany tutaj będzie dostępny na liście uczestników każdej bitwy.</small>
+          </form>
+          <div id="roster" class="roster"></div>
+        </section>
+      </section>
+
+      <section class="tab-view players-view" data-view="history" hidden>
+        <section class="panel roster-panel">
+          <div class="section-head"><h2>📜 Pełna historia bitew</h2><button id="resetStats" class="danger-button" type="button">ZERUJ STATYSTYKI</button></div>
+          <p class="history-note">Usunięcie meczu automatycznie przelicza ranking. Zerowanie usuwa całą historię, ale nie listę graczy.</p>
+          <div id="fullHistory" class="full-history"></div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="battleDialog" class="battle-dialog">
+      <form method="dialog" id="battleForm" class="panel form-panel">
+        <button type="button" class="close" id="closeBattle" aria-label="Zamknij">×</button>
+        <p class="eyebrow">NOWY RAPORT</p>
+        <h2>Dodaj wynik bitwy</h2>
+        <label>Uczestnicy</label>
+        <div id="participantList" class="participant-list"></div>
+        <small>Zaznacz co najmniej 2 graczy z listy.</small>
+        <label for="winner">Zwycięzca</label>
+        <select id="winner" name="winner" required disabled><option>Najpierw zaznacz graczy</option></select>
+        <div class="rules"><b>+3 pkt</b> dla zwycięzcy <span>•</span> <b>−1 pkt</b> dla pozostałych</div>
+        <button class="primary full" type="submit">ZAPISZ WYNIK</button>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
