@@ -4,6 +4,7 @@ const dialog = $('battleDialog');
 const backendConfig = window.SUPABASE_CONFIG || {};
 const online = Boolean(backendConfig.url && backendConfig.publishableKey && window.supabase);
 const db = online ? window.supabase.createClient(backendConfig.url, backendConfig.publishableKey) : null;
+let isAdmin = false;
 
 const initial = {
   players: [
@@ -57,12 +58,12 @@ function updateWinnerOptions() {
 }
 function matchCard(match, index, full) {
   const winner = playerName(match.winner_id), participants = match.participant_ids.map(playerName).join(', '), date = new Date(match.played_at).toLocaleString('pl-PL', { dateStyle: full ? 'full' : 'medium', timeStyle: 'short' });
-  const remove = full ? `<button class="delete-match" type="button" data-match-id="${match.id}">USUĹ</button>` : '';
+  const remove = full && isAdmin ? `<button class="delete-match" type="button" data-match-id="${match.id}">USUĹ</button>` : '';
   return `<article class="match"><div class="match-top"><b>${full ? `#${state.matches.length - index} â€˘ ` : ''}đźŹ… ${winner}</b>${remove}</div><p>${full ? 'Uczestnicy: ' : 'pokonaĹ‚: '}${full ? participants : match.participant_ids.filter(id => id !== match.winner_id).map(playerName).join(', ')}</p><time>${date}${full ? ' â€˘ zwyciÄ™zca +3 pkt, pozostali â’1 pkt' : ''}</time></article>`;
 }
 function render() {
   const rows = standings();
-  $('ranking').innerHTML = rows.length ? rows.map((player, index) => { const rate = player.games ? Math.round(player.wins / player.games * 100) : 0; return `<div class="rank-row"><span class="place">${index + 1}</span><span class="player">${player.name}<small>${player.games} ${player.games === 1 ? 'bitwa' : 'bitew'}</small></span><span class="points">${player.points}</span><span class="wins">${player.wins} W</span><span class="losses">${player.losses} P</span><span class="rate">${rate}%</span><button class="remove-player rank-remove" type="button" data-remove-player="${player.id}" aria-label="UsuĹ„ gracza ${player.name} z rankingu">USUĹ</button></div>`; }).join('') : '<div class="history empty">Brak graczy.</div>';
+  $('ranking').innerHTML = rows.length ? rows.map((player, index) => { const rate = player.games ? Math.round(player.wins / player.games * 100) : 0; const remove = isAdmin ? `<button class="remove-player rank-remove" type="button" data-remove-player="${player.id}" aria-label="UsuĹ„ gracza ${player.name} z rankingu">USUĹ</button>` : ''; return `<div class="rank-row ${isAdmin ? 'admin-row' : ''}"><span class="place">${index + 1}</span><span class="player">${player.name}<small>${player.games} ${player.games === 1 ? 'bitwa' : 'bitew'}</small></span><span class="points">${player.points}</span><span class="wins">${player.wins} W</span><span class="losses">${player.losses} P</span><span class="rate">${rate}%</span>${remove}</div>`; }).join('') : '<div class="history empty">Brak graczy.</div>';
   const newest = state.matches.slice().reverse();
   $('history').classList.toggle('empty', !newest.length);
   $('history').innerHTML = newest.length ? newest.slice(0, 6).map((match, index) => matchCard(match, index, false)).join('') : 'Jeszcze ĹĽadna bomba nie spadĹ‚a. Dodaj pierwszÄ… bitwÄ™!';
@@ -71,7 +72,9 @@ function render() {
   $('playerCount').textContent = activePlayers().length;
   $('leaderName').textContent = rows[0]?.name || 'â€”';
   $('recentLabel').textContent = `${state.matches.length} ${state.matches.length === 1 ? 'raport' : 'raportĂłw'}`;
-  $('roster').innerHTML = activePlayers().length ? activePlayers().map(player => `<span class="roster-chip"><span>${player.name}</span><button class="remove-player" type="button" data-remove-player="${player.id}" aria-label="UsuĹ„ gracza ${player.name}">Ă—</button></span>`).join('') : '<span class="history empty">Dodaj pierwszego gracza.</span>';
+  $('roster').innerHTML = activePlayers().length ? activePlayers().map(player => `<span class="roster-chip"><span>${player.name}</span>${isAdmin ? `<button class="remove-player" type="button" data-remove-player="${player.id}" aria-label="UsuĹ„ gracza ${player.name}">Ă—</button>` : ''}</span>`).join('') : '<span class="history empty">Dodaj pierwszego gracza.</span>';
+  $('resetStats').hidden = !isAdmin;
+  $('adminButton').textContent = isAdmin ? 'ADMIN: ZALOGOWANO' : 'PANEL ADMINA';
   renderParticipantList();
 }
 function toast(text) { const el = $('toast'); el.textContent = text; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); }
@@ -83,6 +86,14 @@ async function loadOnline() {
   if (matches.error) throw matches.error;
   state = { players: players.data, matches: matches.data };
   render();
+}
+async function refreshAdmin() {
+  if (!online) { isAdmin = false; return; }
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { isAdmin = false; return; }
+  const { data, error } = await db.rpc('is_admin');
+  if (error) throw error;
+  isAdmin = data === true;
 }
 async function addPlayer(name) {
   if (online) { const { error } = await db.from('players').insert({ name }); if (error) throw error; } else { state.players.push({ id: `local-${crypto.randomUUID()}`, name, is_active: true }); saveLocal(); }
@@ -112,6 +123,7 @@ $('playerForm').addEventListener('submit', async (event) => {
 });
 async function handlePlayerRemoval(event) {
   const button = event.target.closest('[data-remove-player]'); if (!button) return;
+  if (!isAdmin) return;
   const player = playerById(button.dataset.removePlayer); if (!player || !window.confirm(`UsunÄ…Ä‡ ${player.name} z listy dostÄ™pnych graczy? Historia zostanie zachowana.`)) return;
   try { await disablePlayer(player.id); if (online) await loadOnline(); else render(); toast(`Gracz ${player.name} zostaĹ‚ usuniÄ™ty z listy.`); } catch (error) { fail(error); }
 }
@@ -124,17 +136,31 @@ $('battleForm').addEventListener('submit', async (event) => {
 });
 $('fullHistory').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-match-id]'); if (!button || !window.confirm('UsunÄ…Ä‡ ten mecz z historii i przeliczyÄ‡ ranking?')) return;
+  if (!isAdmin) return;
   try { await deleteMatch(button.dataset.matchId); if (online) await loadOnline(); else render(); toast('Mecz zostaĹ‚ usuniÄ™ty, a ranking przeliczony.'); } catch (error) { fail(error); }
 });
 $('resetStats').addEventListener('click', async () => {
+  if (!isAdmin) return;
   if (!state.matches.length) return toast('Nie ma jeszcze statystyk do wyzerowania.');
   if (!window.confirm('Na pewno wyzerowaÄ‡ statystyki? Wszystkie mecze i historia zostanÄ… usuniÄ™te. Lista graczy zostanie zachowana.')) return;
   try { await resetMatches(); if (online) await loadOnline(); else render(); toast('Statystyki i historia zostaĹ‚y wyzerowane.'); } catch (error) { fail(error); }
 });
 document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab === button)); document.querySelectorAll('.tab-view').forEach(view => view.hidden = view.dataset.view !== button.dataset.tab); }));
+$('adminButton').addEventListener('click', () => { if (!online) return toast('Najpierw podĹ‚Ä…cz Supabase.'); $('adminLoginFields').hidden = isAdmin; $('adminLoggedIn').hidden = !isAdmin; $('adminDialog').showModal(); });
+$('closeAdmin').addEventListener('click', () => $('adminDialog').close());
+$('adminForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const login = $('adminLogin').value.trim().toLowerCase();
+  const email = login.includes('@') ? login : `${login}@wormstracker.local`;
+  const { error } = await db.auth.signInWithPassword({ email, password: $('adminPassword').value });
+  if (error) return fail(error);
+  try { await refreshAdmin(); render(); if (!isAdmin) return toast('To konto nie ma uprawnieĹ„ administratora.'); $('adminLoginFields').hidden = true; $('adminLoggedIn').hidden = false; toast('Zalogowano jako administrator.'); } catch (error) { fail(error); }
+});
+$('adminSignOut').addEventListener('click', async () => { await db.auth.signOut(); isAdmin = false; render(); $('adminDialog').close(); toast('Wylogowano z panelu administratora.'); });
 
 if (online) {
-  loadOnline().catch(fail);
+  refreshAdmin().then(() => loadOnline()).catch(fail);
+  db.auth.onAuthStateChange(() => refreshAdmin().then(() => render()).catch(fail));
   db.channel('worms-tracker-live').on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadOnline().catch(fail)).on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => loadOnline().catch(fail)).subscribe();
 } else render();
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
