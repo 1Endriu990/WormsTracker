@@ -2,6 +2,9 @@
 body { font-family: Nunito, system-ui, sans-serif; }
 .brand strong, .hero h1, .form-panel h2, .place { font-family: 'Permanent Marker', cursive; font-weight: 900; }
 .brand strong { font-size: 24px; letter-spacing: 1px; line-height: 1; }
+.top-actions { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+.admin-button { border: 1px solid #b8cc7b; border-radius: 7px; background: #203825; color: #edf5c5; cursor: pointer; font: 800 10px Nunito, sans-serif; letter-spacing: .5px; padding: 8px 9px; }
+.admin-button:hover { background: #415c38; }
 .crosshair { text-shadow: none; }
 .hero h1 { font-size: 36px; letter-spacing: -.4px; }
 .eyebrow, .stat span, .section-head span, .player small, .match time, .form-panel small, .add-player small { color: #e1ebb8; }
@@ -10,6 +13,7 @@ body { font-family: Nunito, system-ui, sans-serif; }
 .player, .roster-chip, .participant { font-family: Nunito, system-ui, sans-serif; font-weight: 800; }
 .place { font-size: 20px; }
 .rank-row { grid-template-columns: 32px 1fr 48px 34px 34px 42px 58px; }
+.rank-row:not(.admin-row) { grid-template-columns: 32px 1fr 48px 34px 34px 42px; }
 .losses, .rate { color: #edf5c5; font-size: 12px; font-weight: 800; text-align: right; }
 .rate { color: #65ebd5; }
 .roster-chip { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; }
@@ -20,4 +24,5 @@ body { font-family: Nunito, system-ui, sans-serif; }
 .match-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .danger-button, .delete-match { position: relative; z-index: 1; border: 1px solid #ec8c58; border-radius: 7px; background: #572d23; color: #fff0cf; cursor: pointer; font: 800 10px Nunito, sans-serif; letter-spacing: .4px; padding: 7px 9px; }
 .danger-button:hover, .delete-match:hover { background: #943c29; }
-@media (max-width: 720px) { .hero h1 { font-size: 30px; } .rank-row { grid-template-columns: 26px 1fr 40px 30px 30px 38px 45px; gap: 4px; } .points { font-size: 17px; } .wins, .losses, .rate { font-size: 10px; } .rank-remove { font-size: 8px; padding: 5px 4px; } }
+.admin-status { color: #e8f0c5; font-weight: 700; line-height: 1.5; }
+@media (max-width: 720px) { .hero h1 { font-size: 30px; } .rank-row { grid-template-columns: 26px 1fr 40px 30px 30px 38px 45px; gap: 4px; } .rank-row:not(.admin-row) { grid-template-columns: 26px 1fr 40px 30px 30px 38px; } .points { font-size: 17px; } .wins, .losses, .rate { font-size: 10px; } .rank-remove { font-size: 8px; padding: 5px 4px; } }
