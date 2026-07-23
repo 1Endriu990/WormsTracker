@@ -1,4 +1,4 @@
-const CACHE_NAME = 'worms-tracker-v3';
+const CACHE_NAME = 'worms-tracker-v4';
 const APP_FILES = [
   './',
   './index.html',
@@ -22,6 +22,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+  event.respondWith(
+    fetch(event.request).then((response) => {
+      if (event.request.url.startsWith(self.location.origin) && response.ok) {
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+      }
+      return response;
+    }).catch(() => caches.match(event.request))
+  );
 });
-
