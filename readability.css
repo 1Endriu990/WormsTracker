@@ -1,4 +1,4 @@
-/* Czytelniejsze napisy: prosty krĂłj, wiÄ™kszy kontrast i brak rozmywajÄ…cych cieni. */
+/* Czytelniejsze napisy: prosty krój, większy kontrast i brak rozmywających cieni. */
 body { font-family: Nunito, system-ui, sans-serif; }
 .brand strong, .hero h1, .form-panel h2, .place { font-family: 'Permanent Marker', cursive; font-weight: 900; }
 .brand strong { font-size: 24px; letter-spacing: 1px; line-height: 1; }
