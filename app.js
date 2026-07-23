@@ -62,7 +62,7 @@ function matchCard(match, index, full) {
 }
 function render() {
   const rows = standings();
-  $('ranking').innerHTML = rows.length ? rows.map((player, index) => { const rate = player.games ? Math.round(player.wins / player.games * 100) : 0; return `<div class="rank-row"><span class="place">${index + 1}</span><span class="player">${player.name}<small>${player.games} ${player.games === 1 ? 'bitwa' : 'bitew'}</small></span><span class="points">${player.points}</span><span class="wins">${player.wins} W</span><span class="losses">${player.losses} P</span><span class="rate">${rate}%</span><button class="remove-player rank-remove" type="button" data-remove-player="${player.id}" aria-label="UsuĹ„ gracza ${player.name} z rankingu">Ă—</button></div>`; }).join('') : '<div class="history empty">Brak graczy.</div>';
+  $('ranking').innerHTML = rows.length ? rows.map((player, index) => { const rate = player.games ? Math.round(player.wins / player.games * 100) : 0; return `<div class="rank-row"><span class="place">${index + 1}</span><span class="player">${player.name}<small>${player.games} ${player.games === 1 ? 'bitwa' : 'bitew'}</small></span><span class="points">${player.points}</span><span class="wins">${player.wins} W</span><span class="losses">${player.losses} P</span><span class="rate">${rate}%</span><button class="remove-player rank-remove" type="button" data-remove-player="${player.id}" aria-label="UsuĹ„ gracza ${player.name} z rankingu">USUĹ</button></div>`; }).join('') : '<div class="history empty">Brak graczy.</div>';
   const newest = state.matches.slice().reverse();
   $('history').classList.toggle('empty', !newest.length);
   $('history').innerHTML = newest.length ? newest.slice(0, 6).map((match, index) => matchCard(match, index, false)).join('') : 'Jeszcze ĹĽadna bomba nie spadĹ‚a. Dodaj pierwszÄ… bitwÄ™!';
@@ -75,7 +75,7 @@ function render() {
   renderParticipantList();
 }
 function toast(text) { const el = $('toast'); el.textContent = text; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); }
-function fail(error) { console.error(error); toast('Nie udaĹ‚o siÄ™ zapisaÄ‡ zmian. SprĂłbuj ponownie.'); }
+function fail(error) { console.error(error); toast(error?.message || 'Nie udaĹ‚o siÄ™ zapisaÄ‡ zmian. SprĂłbuj ponownie.'); }
 
 async function loadOnline() {
   const [players, matches] = await Promise.all([db.from('players').select('*').order('name'), db.from('matches').select('*').order('played_at')]);
