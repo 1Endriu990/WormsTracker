@@ -151,7 +151,7 @@ $('closeAdmin').addEventListener('click', () => $('adminDialog').close());
 $('adminForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const login = $('adminLogin').value.trim().toLowerCase();
-  const email = login.includes('@') ? login : `${login}@wormstracker.local`;
+  const email = login.includes('@') ? login : `${login}@wormstracker.app`;
   const { error } = await db.auth.signInWithPassword({ email, password: $('adminPassword').value });
   if (error) return fail(error);
   try { await refreshAdmin(); render(); if (!isAdmin) return toast('To konto nie ma uprawnieĹ„ administratora.'); $('adminLoginFields').hidden = true; $('adminLoggedIn').hidden = false; toast('Zalogowano jako administrator.'); } catch (error) { fail(error); }
