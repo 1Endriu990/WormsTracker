@@ -1,4 +1,4 @@
-const CACHE_NAME = 'worms-tracker-v5';
+const CACHE_NAME = 'worms-tracker-v6';
 const APP_FILES = [
   './',
   './index.html',
