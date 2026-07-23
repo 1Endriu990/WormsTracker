@@ -33,7 +33,7 @@ create policy "Matches public insert" on public.matches for insert to anon, auth
 create policy "Administrators update players" on public.players for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
 create policy "Administrators delete matches" on public.matches for delete to authenticated using ((select public.is_admin()));
 
--- Po utworzeniu uĹĽytkownika admin@wormstracker.local w Authentication > Users uruchom:
+-- Po utworzeniu uĹĽytkownika admin@wormstracker.app w Authentication > Users uruchom:
 insert into public.admins (user_id)
-select id from auth.users where email = 'admin@wormstracker.local'
+select id from auth.users where email = 'admin@wormstracker.app'
 on conflict do nothing;
